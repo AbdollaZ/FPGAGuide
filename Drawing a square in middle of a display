@@ -1,0 +1,72 @@
+module draw(clk, reset, MTL2_DCLK, MTL2_R, MTL2_G, MTL2_B, MTL2_HSD, MTL2_VSD);
+
+//port list needed for MTL
+input clk;
+input reset;
+output MTL2_DCLK;
+output [7:0] MTL2_R;  // [7:0] notation means that this an output signal with 8 bits wide
+output [7:0] MTL2_G;
+output [7:0] MTL2_B;
+output MTL2_HSD;
+output MTL2_VSD;
+reg [7:0] red, green, blue;
+wire res=~reset;
+wire display_on;
+wire [11:0] hpos; // horizontal pixels position of the display
+wire [11:0] vpos; // horizontal pixels position of the display
+reg clk_half = 0;
+
+// clk start
+always @(posedge clk) clk_half<= ~clk_half;
+//This line of Verilog code is used to generate a clock signal that is 
+//half the frequency of the original clock signal, clk.
+
+
+// hvsync vital part
+// another module used here!!!
+// you can check the code of hvsync inside that file, just need to open it inside Quartus.
+hvsync test(
+ .clk(clk_half),  
+ .reset(0),
+ .data_enable(display_on),  
+ .hsync(MTL2_HSD),
+ .vsync(MTL2_VSD),  
+ .hpos(hpos),
+ .vpos(vpos));
+ 
+ //thing needed to set up the screen
+localparam LINE = 799;
+localparam SCREEN = 479;
+//localparam is just a constant
+wire data_enable = ((hpos <= LINE && hpos >= 0) && (vpos <= SCREEN && vpos >= 0));
+//wire - used for physical connections, can't store values, needs continuous assignments
+
+//Data enable is a condition that restricts the borders of the output, so we can see only images that are possible to see.
+
+localparam blockSize = 150;
+reg[11:0] block_vpos = 165;
+reg[11:0] block_hpos = 325;
+
+wire block_gfx = ((hpos - block_hpos) < blockSize) && ((vpos - block_vpos) < blockSize);
+
+
+  
+always @(negedge clk_half) begin
+  if(block_gfx && data_enable) begin
+        red <= 8'h46;  // In Verilog, 8'h46 is a way to represent an 8-bit hexadecimal value.
+        green <= 8'hce;  // the more the value, the more the color is INTENSIVE
+        blue <= 8'h2f;
+      end 
+      else begin
+        red <=8'd0;  
+        green <=8'd0;      
+        blue <=8'd0;
+      end
+end
+
+assign MTL2_DCLK=clk_half;
+assign MTL2_R=red;  
+assign MTL2_G=green;
+assign MTL2_B=blue;
+  
+endmodule
